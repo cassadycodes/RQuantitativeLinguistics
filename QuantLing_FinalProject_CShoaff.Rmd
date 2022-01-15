@@ -1,0 +1,565 @@
+---
+title: 'ESL in Essex County'
+author: "Cassady Shoaff"
+output:
+  html_document: 
+    code_folding: hide
+---
+
+### Introduction
+
+Essex County, New Jersey is the home of Montclair State University and currently over 800,000 people from a wide variety of diverse backgrounds. This project takes a look at languages spoken at home in Essex County households, using data from the 2015 American Community survey. By investigating where ESL speakers are most in need, local libraries and schools can better direct their efforts to provide learning resources to these communities, specialized for the students' native languages.
+
+```{r, include = FALSE, message = FALSE}
+# echo = FALSE hides chunk but preserves output
+# include = FALSE hides the entire chunk
+# message = FALSE hides message output
+# warning = FALSE hides errors
+library("tidyverse", quietly=TRUE)
+library("tidycensus", quietly=TRUE)
+library("ggthemes", quietly = TRUE)
+library("wordcloud", quietly = TRUE)
+library("tidytext", quietly = TRUE)
+key <- "5f876c5d0227b25a4d8781d424a6cb2e78d7da97" # census API key
+#census_api_key(key, install=TRUE) # installing the key
+# have to comment ^above^ out after installing or it breaks everything!
+#Sys.getenv("CENSUS_API_KEY") # checking if the API key worked
+#readRenviron("~/.Renviron") # may need to restart R to use the key
+```
+
+```{r, include = FALSE}
+# maps tutorial # https://walker-data.com/tidycensus/articles/spatial-data.html
+# B01003_001 TOTAL POPULATION
+essex_pop <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B01003_001", geometry = TRUE, year = 2015)
+
+options(tigris_use_cache = TRUE)
+```
+
+```{r, echo = FALSE, message = FALSE}
+essex_pop %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c(option = "plasma") + # to invert the colors, use , direction = -1
+  ggtitle("Total Population of Essex County, NJ in 2015")
+```
+
+## Languages Spoken at Home
+
+### Identifying ESL Need
+
+Certain municipalities may benefit from increased availability of English as a Second language educational resources and at local schools and libraries. To identify which areas may be in need, we will look for places where the language spoken at home is not English and the residents were rated *Speak English less than "very well"* on the American Community Survey. By investigating the primary language spoken at home, we can better provide ESL materials in the native languages of the learners, improving accessibility. This critical information should be provided to the municipality's libraries and schools so educators can act on community needs.
+
+```{r, include = FALSE, message = FALSE}
+# B16002_001 HOUSEHOLD LANGUAGE BY HOUSEHOLD LIMITED ENGLISH SPEAKING STATUS
+essex_limited <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16002_001", geometry = TRUE, year = 2015)
+```
+
+```{r, echo = FALSE, message = FALSE}
+#suggest_crs(essex) # find the CRS code to get the map outline (only need once)
+# ^^^^^ This was the hardest part! suggest_crs has many dependencies that my Linux R environment didn't have by default which were difficult to troubleshoot, so I had to switch to RStudio Cloud.
+
+essex_limited %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c(option = "magma") +
+  ggtitle("Limited English Speaking Households") +
+  xlab("Essex County, New Jersey")
+
+```
+
+There may be an area in need between Livingston and South Orange. However, this may be due to the location of the South Mountain Reservation park skewing population data. Information about how this tract/PUMA was determined could not be ascertained, but it seems to be a red herring. An examination of this county on a by-language basis follows.
+
+### Population by Language Spoken at Home by English Ability {.tabset}
+
+#### Italian
+
+```{r, echo = FALSE, message = FALSE}
+# the {.tabset} next to the header will make all the following headers TABS!
+# the subsequent section headers MUST be surrounded by empty line breaks!
+# and MUST be the same size! e.g. same number of #### :D yay tabs!
+
+# LANGUAGE SPOKEN AT HOME BY ABILITY TO SPEAK ENGLISH FOR THE POPULATION 5 YEARS AND OVER
+# B16001_002 Speak only English
+## Speak English less than "very well"
+# B16001_005 Spanish or Spanish Creole
+# B16001_008 French (incl. Patois, Cajun)
+# B16001_011 French Creole
+# B16001_014 Italian
+# B16001_017 Portuguese or Portuguese Creole
+# B16001_068 Chinese
+
+# I wanted to include a bar chart of all the languages in B16001 as a preliminary investigation of what to include next
+# but I could not get it working :( Instead I just guessed and checked manually, skipping anything "Other"
+
+## EXCLUDED
+# B16001_020 German 
+# B16001_023 Yiddish 
+# B16001_026 Other West Germanic languages
+# B16001_032 Greek
+# B16001_035 Russian
+# B16001_038 Polish
+# ...many more
+
+essex_italian <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                  variables = "B16001_014", geometry = TRUE, year = 2015)
+essex_italian %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("Italian spoken at home & speak English less than 'very well'")
+```
+
+#### Spanish
+
+```{r, echo = FALSE, message = FALSE}
+essex_spanish <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16001_005", geometry = TRUE, year = 2015)
+essex_spanish %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("Spanish spoken at home & speak English less than 'very well'")
+```
+
+#### French
+
+```{r, echo = FALSE, message = FALSE}
+essex_french <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16001_008", geometry = TRUE, year = 2015)
+essex_french %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("French spoken at home & speak English less than 'very well'")
+```
+
+#### Portuguese
+
+```{r, echo = FALSE, message = FALSE}
+essex_portuguese <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16001_017", geometry = TRUE, year = 2015)
+essex_portuguese %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("Portuguese spoken at home & speak English less than 'very well'")
+```
+
+#### Chinese
+
+```{r, echo = FALSE, message = FALSE}
+essex_chinese <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16001_068", geometry = TRUE, year = 2015)
+essex_chinese %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("Chinese spoken at home & speak English less than 'very well'")
+```
+
+#### Vietnamese
+
+```{r, echo = FALSE, message = FALSE}
+essex_vietnamese <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16001_089", geometry = TRUE, year = 2015)
+essex_vietnamese %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("Vietnamese spoken at home & speak English less than 'very well'")
+```
+
+#### Arabic
+
+```{r, echo = FALSE, message = FALSE}
+essex_arabic <- get_acs(state = "NJ", county = "Essex", geography = "tract", 
+                         variables = "B16001_110", geometry = TRUE, year = 2015)
+essex_arabic %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = NA) + 
+  coord_sf(crs = 6318) + 
+  scale_fill_viridis_c() +
+  ggtitle("Arabic spoken at home & speak English less than 'very well'")
+
+# the line below with {-} ends the tab section
+```
+
+## {-}
+
+[Referring to Google Maps for approximate municipality names](https://www.google.com/maps/place/Essex+County,+NJ/@40.7915716,-74.3852381,11z/data=!3m1!4b1!4m5!3m4!1s0x89c3bca134fbe26d:0xc955b4d208ef1dae!8m2!3d40.7947466!4d-74.2648829)
+
+We can now observe specific areas correspond to the hotspot locations previously highlighted in the overall "limited English" Essex county map shown at the start. The following regions could benefit from increased ESL resources for...
+
+- Spanish speakers in East Orange / Newark **Highest Need**
+- Italian speakers in the Caldwells 
+- French speakers near Vauxhall
+- Portuguese speakers in Newark
+- Chinese speakers in Short Hills
+- Vietnamese speakers in South Orange / Bloomfield
+- Arabic speakers in Little Falls 
+
+#### Questions and Concerns About the Census Data
+
+How can we be sure these populations actually "speak English less than very well"? The criteria was arbitrarily assigned by the census taker, so it may be subject to bias. For example, were the speakers rated poorly just for having a non-standard accent, even if they could be easily understood? This subjective judgement should be taken with a grain of salt.
+
+### Next Steps
+
+Survey data can be used to effectively ascertain locales in need of English as a Second Language educational resources. How can we customize resources to best assist ESL learners based on their personal native languages?
+
+## Investigating a Learner Corpus
+
+The University of Pittsburgh English Language Corpus (PELIC) is a dataset comprised of essays written by non-native English learners. It was collected in fall, spring, and summer semesters between the years of 2006 through 2012. The dataset includes useful information such as the learner's native language (L1) and English proficiency according to course level.
+
+```{r include = FALSE}
+# Loading PELIC dataset
+# https://github.com/ELI-Data-Mining-Group/PELIC-dataset/blob/master/PELIC_compiled.csv
+
+pelic <- read_csv("PELIC_compiled.csv")
+#spec(pelic)
+
+# Selecting subsets of relevant L1s
+# based on which L1s were most common in Essex county
+
+# Arabic speakers were in need of ESL resources in Little Falls
+arabic <- pelic %>%
+  filter(L1 == "Arabic")
+#arabic
+
+# Spanish speakers were in need of ESL resources in Newark
+spanish <- pelic %>%
+  filter(L1 == "Spanish")
+#spanish
+
+
+# Chinese speakers were in need of ESL resources in Short Hills
+chinese <- pelic %>%
+  filter(L1 == "Chinese")
+#chinese
+
+vietnamese <- pelic %>%
+  filter(L1 == "Vietnamese")
+#vietnamese
+
+italian <- pelic %>%
+  filter(L1 == "Italian")
+#italian
+
+arabic <- pelic %>%
+  filter(L1 == "Arabic")
+#arabic
+
+french <- pelic %>%
+  filter(L1 == "French")
+#french
+
+portuguese <- pelic %>%
+  filter(L1 == "Portuguese")
+#portuguese
+```
+
+```{r include = FALSE}
+#############################
+# creating the visualizations
+
+it_plt <- ggplot(italian, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: Italian",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+
+sp_plt <- ggplot(spanish, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: Spanish",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+
+fr_plt <- ggplot(french, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: French",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+
+po_plt <- ggplot(portuguese, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: Portuguese",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+
+ch_plt <- ggplot(chinese, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: Chinese",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+
+vi_plt <- ggplot(vietnamese, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: Vietnamese",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+
+ar_plt <- ggplot(arabic, aes(level_id, case_when(text_len > 10 ~ mean(text_len)))) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  labs(title = "Mean Length of Students' Writing",
+       subtitle = "Student L1: Arabic",
+       x = "Course Level",
+       y = "Text Length") +
+  theme_economist()
+```
+
+### Development of ESL Writing Ability
+
+We can observe the improvement of students' writing ability as represented by the mean text length of all student essays and written responses increasing as course difficulty increases. (Texts with length less than 10 tokens have been excluded, as the data contained multiple choice and fill-in-the-blank responses among the essay data.) The course levels are as follows:
+
+* 2 Pre-Intermediate
+* 3 	Intermediate
+* 4 	Upper-Intermediate
+* 5 	Advanced
+
+The visualizations below are organized according to the students' native language. Students in the Upper-Intermediate and Advanced courses cultivated a definite increase in the length of text they were able to produce. We can see pursuing high-level coursework has a dramatic effect on the students' writing proficiency.
+
+### Improvements You Can See! {.tabset}
+
+#### Italian
+
+```{r echo = FALSE, warning = FALSE}
+it_plt
+```
+
+#### Spanish
+
+```{r echo = FALSE, warning = FALSE}
+sp_plt
+```
+
+#### French
+
+```{r echo = FALSE, warning = FALSE}
+fr_plt
+```
+
+#### Portuguese
+
+```{r echo = FALSE, warning = FALSE}
+po_plt
+```
+
+#### Chinese
+
+```{r echo = FALSE, warning = FALSE}
+ch_plt
+```
+
+#### Vietnamese
+
+```{r echo = FALSE, warning = FALSE}
+vi_plt
+```
+
+#### Arabic
+
+```{r echo = FALSE, warning = FALSE}
+ar_plt
+```
+
+### What Did Students Write About? {.tabset}
+
+Now we will use wordclouds to express term frequency in the students' writing. By examining production tasks, we can attempt to identify areas where learners may need specific support based on their L1s.
+
+[**Originally I intended to make Part of Speech clouds, to investigate whether certain POS were under or overused in learner production. This was inspired by a cursory overview of the texts themselves, where I observed some students underutilizing determiners more often when their native language was Chinese vs Spanish. I wanted to see if this would show up in a frequency analysis of the POS. However, tagging seems to be a resource-intensive task in the R language. There is a token_lemma_POS column in the dataset, but I was unable to extract the POS. I would like to have examined this further. Instead, we will see some traditional word clouds.**]
+
+```{r include = FALSE}
+# load texts
+# exclude extremely short texts
+it_text <- filter(italian['text'], italian['text_len'] > 10)
+sp_text <- filter(spanish['text'], spanish['text_len'] > 10)
+fr_text <- filter(french['text'], french['text_len'] > 10)
+po_text <- filter(portuguese['text'], portuguese['text_len'] > 10)
+ch_text <- filter(chinese['text'], chinese['text_len'] > 10)
+vi_text <- filter(vietnamese['text'], vietnamese['text_len'] > 10)
+ar_text <- filter(arabic['text'], arabic['text_len'] > 10)
+```
+
+```{r include = FALSE}
+# create word clouds!
+# https://cran.r-project.org/web/packages/tidytext/vignettes/tidytext.html
+
+
+# I wanted to use wordcloud to investigate frequency of parts of speech according to L1
+# to try to analyze whether speakers were overusing/underusing certain POS based on their L1
+# because a cursory observation the texts led me to suspect missing DTs etc.
+# but I cannot figure out how to select the rightmost element of the tuple! I tried pluck(), extract2(), `]]` ...
+# oof :( will have to revisit this idea later
+
+#tidy_ch_pos <- filter(chinese['tok_lem_POS'], chinese['text_len'] > 10) %>% unnest_tokens(word, tok_lem_POS)
+# ^^^ doesn't work bc column includes tokens and lemmas, need rightmost element of each tuple
+
+# preprocessing for wordclouds
+
+#italian
+tidy_it_text <- it_text %>% unnest_tokens(word, text)
+
+clean_it_text <- tidy_it_text %>%
+  anti_join(get_stopwords())
+
+#spanish
+tidy_sp_text <- sp_text %>% unnest_tokens(word, text)
+
+clean_sp_text <- tidy_it_text %>%
+  anti_join(get_stopwords())
+
+#french
+tidy_fr_text <- fr_text %>% unnest_tokens(word, text)
+
+clean_fr_text <- tidy_fr_text %>%
+  anti_join(get_stopwords())
+
+#portuguese
+tidy_po_text <- po_text %>% unnest_tokens(word, text)
+
+clean_po_text <- tidy_po_text %>%
+  anti_join(get_stopwords())
+
+#chinese
+tidy_ch_text <- ch_text %>% unnest_tokens(word, text)
+tidy_ch_text
+
+clean_ch_text <- tidy_ch_text %>%
+  anti_join(get_stopwords())
+
+#vietnamese
+tidy_vi_text <- vi_text %>% unnest_tokens(word, text)
+
+clean_vi_text <- tidy_vi_text %>%
+  anti_join(get_stopwords())
+
+#arabic
+tidy_ar_text <- ar_text %>% unnest_tokens(word, text)
+
+clean_ar_text <- tidy_ar_text %>%
+  anti_join(get_stopwords())
+
+# set color scheme for wordclouds
+cloud_colors <- brewer.pal(6,"Spectral") 
+```
+
+#### Italian
+
+```{r echo = FALSE, warning = FALSE}
+clean_it_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+#### Spanish
+
+```{r echo = FALSE, warning = FALSE}
+clean_sp_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+#### French
+
+```{r echo = FALSE, warning = FALSE}
+clean_fr_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+#### Portuguese
+
+```{r echo = FALSE, warning = FALSE}
+clean_po_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+#### Chinese
+
+```{r echo = FALSE, warning = FALSE}
+clean_ch_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+#### Vietnamese
+
+```{r echo = FALSE, warning = FALSE}
+clean_vi_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+#### Arabic
+
+```{r echo = FALSE, warning = FALSE}
+clean_ar_text %>%
+  count(word) %>%
+  with(wordcloud(word, n, max.words = 100, 
+                 colors = cloud_colors, 
+                 scale=c(4,.5),
+                 vfont=c("serif","plain")))
+```
+
+### Conclusion
+
+Local census data can tell us a lot about where ESL learners may be in need. By analyzing county statistics on language spoken at home, were able to identify locales that may benefit from increased ESL resources in schools and libraries. Learner corpora such as PELIC can give insight to what these resources may look like based, personalized on an individual basis for the students' native language.
+
+
+![](msu_shield_fl_fullcolor.png){width=50%}
+
+#### References
+
+Data provided by:
+
+* Juffs, A., Han, N-R., & Naismith, B. (2020). The University of Pittsburgh English Language Corpus (PELIC) [Data set]. http://doi.org/10.5281/zenodo.3991977 https://github.com/ELI-Data-Mining-Group/PELIC-dataset/blob/master/PELIC_compiled.csv
+
+* Kyle Walker and Matt Herman (2021). tidycensus: Load US Census Boundary and Attribute Data as 'tidyverse' and 'sf'-Ready Data Frames. R package version 1.1. https://walker-data.com/tidycensus/
+
+* Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686, https://doi.org/10.21105/joss.01686
+
+
+```{r}
+# easily find package citations using the citation() function!
+#citation("tidyverse")
+```
